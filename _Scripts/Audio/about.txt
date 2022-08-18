@@ -1,0 +1,9 @@
+// audio propagation scripts
+
+PropNodeManager is an in-editor tool used to place and connect 3D nodes around the scene
+(it can acquire children Spatial nodes to fill out a starting list of positions).
+
+Custom3DAudio handles attenuation along these created NodePaths.
+
+The AudioManager manages creating, controlling, propagating all sounds in the scene.
+It should be instantiated as a singleton.

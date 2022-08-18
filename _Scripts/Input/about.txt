@@ -1,0 +1,4 @@
+// input manager
+
+extensible custom script for handling player input at an elevated level.
+Instantiate as a singleton, modify to taste.

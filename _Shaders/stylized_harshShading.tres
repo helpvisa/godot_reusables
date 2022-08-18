@@ -1,0 +1,48 @@
+[gd_resource type="Shader" format=2]
+
+[resource]
+code = "shader_type spatial;
+render_mode diffuse_toon;
+
+// variables
+uniform sampler2D albedoMap;
+uniform sampler2D roughnessMap;
+uniform float roughScale = 1.;
+uniform bool fullRough = false;
+uniform sampler2D normalMap;
+uniform bool useNormalMap = false;
+uniform sampler2D metalMap;
+uniform float metalScale = 1.;
+
+float rand(vec2 co){
+	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+void light() {
+	DIFFUSE_LIGHT += clamp((LIGHT_COLOR / 3.) * round(dot(NORMAL, LIGHT) * 3.) * round(ATTENUATION) * ALBEDO * (1. - METALLIC), 0., 1.);
+	vec3 half = normalize(LIGHT + VIEW);
+	SPECULAR_LIGHT += clamp((round(pow(max(dot(NORMAL, half), 0.), (1. - ROUGHNESS) * (1. - ROUGHNESS) * 50.) * 3. * ((1. - ROUGHNESS) * 3.)) * round(ATTENUATION) / 12.) * LIGHT_COLOR * mix(vec3(1.,1.,1.), ALBEDO, METALLIC), 0., 1.);
+}
+
+void fragment() {
+	// fresnel term
+	float fresnel = sqrt(1. - dot(NORMAL, VIEW));
+	
+	ALBEDO = clamp((round(((texture(albedoMap, UV).rgb)) * 8.) / 8.), 0., 1.);
+	
+	// roughness
+	if (fullRough) {
+		ROUGHNESS = 0.999;
+	}
+	else {
+		ROUGHNESS = (texture(roughnessMap, UV).r * clamp(roughScale, 0., 0.999));
+	}
+	
+	// normals
+	if (useNormalMap) {
+		NORMALMAP = texture(normalMap, UV).rgb;
+	}
+	
+	// metalness
+	METALLIC = texture(metalMap, UV).r * clamp(metalScale, 0., 1.);
+}"
