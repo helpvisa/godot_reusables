@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=2]
+
+[sub_resource type="RectangleShape2D" id=17]
+
+[sub_resource type="AnimatedTexture" id=18]
+
+[node name="TestBody" type="RigidBody2D"]
+position = Vector2( 262, 40 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource( 17 )
+
+[node name="Sprite" type="Sprite" parent="."]
+position = Vector2( 3.33786e-06, -2.38419e-07 )
+scale = Vector2( 22, 22 )
+texture = SubResource( 18 )
