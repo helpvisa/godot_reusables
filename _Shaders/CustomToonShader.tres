@@ -1,82 +1,100 @@
-[gd_resource type="Shader" format=2]
+[gd_resource type="Shader" format=3 uid="uid://ss2isi0mca51"]
 
 [resource]
 code = "shader_type spatial;
-render_mode ambient_light_disabled;
+render_mode ambient_light_disabled, specular_disabled, diffuse_toon;
+
+// global shader vars
+global uniform sampler2D environment;
 
 // variables
-uniform vec4 ambientLight: hint_color = vec4(0.1, 0.1, 0.1, 1.);
+uniform vec4 ambientLight: source_color = vec4(0.6, 0.6, 0.6, 1.);
+uniform float ambientInfluence: hint_range(0., 1.) = 0.2;
 uniform bool useRimLighting = true;
 uniform float rimOffset: hint_range(0., 1.) = 0.8;
 uniform float rimMix: hint_range(0., 1.) = 0.25;
-uniform sampler2D albedoMap: hint_albedo;
-uniform vec4 albedoTint: hint_color = vec4(1.,1.,1.,1.);
-uniform sampler2D roughnessMap : hint_white;
+uniform float diffuseStep: hint_range(0.01, 0.2) = 0.05;
+uniform sampler2D albedoMap: source_color;
+uniform vec4 albedoTint: source_color = vec4(1.,1.,1.,1.);
+uniform sampler2D roughnessMap : hint_default_white;
+uniform bool useRoughnessMap = false;
 uniform float roughScale: hint_range(0., 1.) = 1.;
-uniform float specularMix: hint_range(0., 1.) = 0.5;
+uniform float specularMix: hint_range(0., 1.) = 1.;
+uniform float specularStart: hint_range(0., 1.) = 0.7;
+uniform float specularEnd: hint_range(0., 1.) = 0.75;
+uniform float metalness: hint_range(0., 1.) = 0.;
+uniform bool useMetallicMap = false;
 uniform bool fullRough = false;
 uniform sampler2D normalMap : hint_normal;
 uniform bool useNormalMap = false;
 
-// random noise function
-float rand(vec2 co){
-	return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
-}
-
 void fragment() {
-	// fresnel term
-	float fresnel = sqrt(1. - dot(NORMAL, VIEW));
-	
-	METALLIC = 0.;
 	ALBEDO = texture(albedoMap, UV).rgb * albedoTint.rgb;
 	
 	// roughness
 	if (fullRough) {
 		ROUGHNESS = 1.;
 	}
-	else {
-		ROUGHNESS = texture(roughnessMap, UV).r * roughScale;
+	else if (useRoughnessMap) {
+		ROUGHNESS = texture(roughnessMap, UV).g * roughScale;
+	} else {
+		ROUGHNESS = roughScale;
+	}
+	
+	// metalness
+	if (useMetallicMap) {
+		METALLIC = texture(roughnessMap, UV).r * metalness;
+	} else {
+		METALLIC = metalness;
 	}
 	
 	// normals
 	if (useNormalMap) {
-		NORMALMAP = texture(normalMap, UV).rgb;
+		NORMAL_MAP = texture(normalMap, UV).rgb;
 	}
 }
 
 void light() {
+	// reflection mapping UV
+	vec3 refView = (INV_VIEW_MATRIX * vec4(VIEW, 0.)).rgb;
+	vec3 refNorm = (INV_VIEW_MATRIX * vec4(NORMAL, 0.)).rgb;
+	vec3 r = reflect(refView, refNorm);
+	vec2 vN = vec2(atan(r.z, r.x), asin(r.y));
+	vN *= vec2(0.1591, 0.3183);
+	vN += 0.5;
+	vec3 reflection = texture(environment, vN).rgb;
+	
+	// ambient lighting
+	vec3 ambient = ambientLight.rgb + (LIGHT_COLOR / 10. * ambientInfluence * smoothstep(0., 0.00001, ATTENUATION));
+	
 	// diffuse lighting
 	float NdotL = dot(NORMAL, LIGHT);
-	float diffuse = NdotL + (ATTENUATION.x - 1.);
-	diffuse = smoothstep(0., 0.01, diffuse);
+	float diffuse = NdotL + (ATTENUATION - 1.);
+	diffuse = smoothstep(0., diffuseStep, diffuse);
 	vec3 coloredDiffuse = diffuse * LIGHT_COLOR * ALBEDO;
-	
-	// ambient light (cutout, for if you want to manually choose lit + unlit colours)
-	//float ambient = (1. - diffuse);
-	//vec3 coloredAmbient = ambient * ambientLight.rgb * ALBEDO;
 	
 	// rim lighting
 	float rim = sqrt(1. - dot(NORMAL, VIEW));
-	float rimIntensity = rim * NdotL;
-	rimIntensity = smoothstep(rimOffset - 0.01, rimOffset + 0.01, rimIntensity);
+	float rimIntensity = rim * NdotL * ATTENUATION;
+	rimIntensity = smoothstep(rimOffset - 0.005, rimOffset + 0.005, rimIntensity);
 	vec3 coloredRim = rimIntensity * LIGHT_COLOR * rimMix;
 	
 	// specular lighting
 	vec3 half = normalize(LIGHT + VIEW);
 	float NdotH = dot(NORMAL, half);
-	float specular = NdotH + (ATTENUATION.x - 1.);
+	float specular = NdotH + (ATTENUATION - 1.);
 	specular = pow(specular, (1. - ROUGHNESS) * (1. - ROUGHNESS) * 100.);
-	specular = smoothstep(0.005, 0.0055, specular) * ((1.-ROUGHNESS) * (1.-ROUGHNESS));
-	vec3 coloredSpec = specular * LIGHT_COLOR * specularMix * mix(vec3(1.), ALBEDO, METALLIC);
+	specular = smoothstep(specularStart, specularEnd, specular) * ((1.-ROUGHNESS) * (1.-ROUGHNESS));
+	vec3 coloredSpec = specular * LIGHT_COLOR * specularMix * mix(vec3(1.), ALBEDO, METALLIC) + (reflection * ALBEDO * METALLIC);
 	
 	
 	// apply
 	// get max between them; allows for multiple lights but one shaded part
 	if (useRimLighting) {
-	DIFFUSE_LIGHT = ambientLight.rgb * ALBEDO + max(DIFFUSE_LIGHT, coloredDiffuse + coloredRim); // + coloredAmbient);
+		DIFFUSE_LIGHT = max(DIFFUSE_LIGHT, coloredDiffuse + coloredRim + ambient);
 	}
 	else {
-		DIFFUSE_LIGHT = ambientLight.rgb * ALBEDO + max(DIFFUSE_LIGHT, coloredDiffuse); // + coloredAmbient);
+		DIFFUSE_LIGHT = max(DIFFUSE_LIGHT, coloredDiffuse + ambient);
 	} 
 	SPECULAR_LIGHT = max(SPECULAR_LIGHT, coloredSpec);
 }"
