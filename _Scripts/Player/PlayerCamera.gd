@@ -6,6 +6,7 @@ extends Camera3D
 # variable declaration
 @onready var originalOrigin = transform.origin
 @onready var originalBasis = transform.basis
+var playerRot = 0
 var viewBob: Vector3 = Vector3.ZERO
 var rotBobX: float = 0
 var rotBobZ: float = 0
@@ -21,7 +22,6 @@ var leftFoot = false
 
 func _ready():
 	state.connect("stepped", process_step_signal)
-	state.connect("first_step", process_step_signal)
 	state.connect("jumped", process_jump_signal)
 	state.connect("landed", process_land_signal)
 
@@ -35,6 +35,7 @@ func _process(delta):
 	
 	# apply camera rotational bobs
 	transform.basis = originalBasis * Basis(Vector3.RIGHT, rotBobX) * Basis(Vector3.FORWARD, rotBobZ)
+	rotation_degrees.x = playerRot
 
 
 # offset state definitions
@@ -70,7 +71,6 @@ var motions = {
 # custom functions
 func flip_foot():
 	leftFoot = !leftFoot
-	print(leftFoot)
 
 
 func reset_counter():

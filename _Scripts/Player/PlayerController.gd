@@ -4,19 +4,21 @@ extends CharacterBody3D
 @export var camera: Camera3D
 
 # physics parameters
-@export var moveSpeed = 1.6 # player's base movespeed
+@export var moveSpeed = 65 # player's base movespeed
 @export_range(0, 1) var airInfluence: float = 0.1 # amount of movement influence player retains in midair
 @export var groundFriction = 10 # ground friction
 @export var airFriction = 1.3 # air friction
 @export var weight = 1 # player's weight
 @export var jumpHeight = 5 # player's jumpheight
-@export var coyoteTime = 6 # number of ticks a jump is still effective after leaving the ground
+@export var coyoteTime = 0.25 # number of seconds a jump is still effective after leaving the ground
 @export var gravity = 9.8 # effect of gravity on player
 
 # look options
 @export var minLookAngle = -80 # angle to which the player can look down
 @export var maxLookAngle = 80 # angle to which the player can look up
-@export var lookSensitivity = 20 # mouselook sensitivity
+@export var lookSensitivity = 1000 # mouselook sensitivity
+@export var controllerSensHor = 250 # controller hoirzontal look sensitivity
+@export var controllerSensVer = 150 # controller vertical look sensitivity
 
 # control settings (replace with capture from upper-level input manager which modifies this dict)
 @export var useExternalInput = false
@@ -24,6 +26,7 @@ var inputs = {
 	"movement": Vector2(), # store input as Vector2 for future controller support
 	"jump": false, # single key actions stored as bool flags
 	"mouseDelta": Vector2(),
+	"controllerLook": Vector2(),
 }
 
 # vectors and tracking variables
@@ -61,7 +64,7 @@ func _input(event):
 
 func _process(delta):
 	if !useExternalInput:
-		internal_input() # use built-in input management
+		internal_input(delta) # use built-in input management
 	process_input(delta) # process input dict
 
 
@@ -85,15 +88,15 @@ func _physics_process(delta):
 		# reset coyote timer
 		coyoteTimer = 0
 		# update current velocity based on inputs, full ground influence
-		velocity += (relativeDirection * moveSpeed) / weight
+		velocity += ((relativeDirection * moveSpeed) / weight) * delta
 		# apply ground friction
 		velocity.x -= (velocity.x * groundFriction) * delta
 		velocity.z -= (velocity.z * groundFriction) * delta
 	else:
 		# increment coyote timer
-		coyoteTimer += 1
+		coyoteTimer += 1 * delta
 		# update current velocity based on inputs, minimal air influence
-		velocity += (relativeDirection * moveSpeed * airInfluence) / weight
+		velocity += ((relativeDirection * moveSpeed * airInfluence) / weight) * delta
 		# apply air friction
 		velocity.x -= (velocity.x * airFriction) * delta
 		velocity.z -= (velocity.z * airFriction) * delta
@@ -101,6 +104,7 @@ func _physics_process(delta):
 	# jump logic (checks if is_on_ground or if coyoteTimer is less than allowed coyote time)
 	if movementStates.jumped and (is_on_floor() or coyoteTimer < coyoteTime):
 		velocity.y = jumpHeight
+		coyoteTimer = coyoteTime
 	
 	# apply gravity (perpendicular to floor to stop sliding)
 	#var gravityResistance = get_floor_normal() if is_on_floor() else Vector3.UP
@@ -115,23 +119,26 @@ func _physics_process(delta):
 
 # custom functions
 # function which handles baked-in input
-func internal_input():
+func internal_input(delta):
 	# handle directional movement
 	playerInput = Vector2() # blank input vector
-	if Input.is_action_pressed("move_forward"):
-		inputs.movement.y -= 1
-	if Input.is_action_pressed("move_backward"):
-		inputs.movement.y += 1
-	if Input.is_action_pressed("move_left"):
-		inputs.movement.x -= 1
-	if Input.is_action_pressed("move_right"):
-		inputs.movement.x += 1
+	inputs.movement.y -= 1 * Input.get_action_strength("move_forward")
+	inputs.movement.y += 1 * Input.get_action_strength("move_backward")
+	inputs.movement.x -= 1 * Input.get_action_strength("move_left")
+	inputs.movement.x += 1 * Input.get_action_strength("move_right")
+	
+	# controller camera look
+	inputs.controllerLook = Vector2.ZERO
+	inputs.controllerLook.x -= Input.get_action_strength("look_left") * controllerSensHor
+	inputs.controllerLook.x += Input.get_action_strength("look_right") * controllerSensHor
+	inputs.controllerLook.y += Input.get_action_strength("look_down") * controllerSensVer
+	inputs.controllerLook.y -= Input.get_action_strength("look_up") * controllerSensVer
 	
 	if Input.is_action_just_pressed("jump"):
 		inputs.jump = true
 	
 	# set mouse delta
-	inputs.mouseDelta = internalMouseDelta * lookSensitivity
+	inputs.mouseDelta = internalMouseDelta * lookSensitivity * delta
 	internalMouseDelta = Vector2()
 
 
@@ -140,16 +147,19 @@ func process_input(delta):
 	# handle directional movement
 	playerInput = inputs.movement
 		
-	# normalize input vector
-	playerInput = playerInput.normalized()
+	# normalize input vector if necessary
+	if playerInput.length_squared() > 1:
+		playerInput = playerInput.normalized()
 	
 	if inputs.jump:
 		movementStates.jumped = true
 	
 	# handle player rotation + camera movement
 	rotation_degrees.y -= inputs.mouseDelta.x * delta # body left/right
-	camera.rotation_degrees.x -= inputs.mouseDelta.y * delta # eyes up/down
-	camera.rotation_degrees.x = clamp(camera.rotation_degrees.x, minLookAngle, maxLookAngle) # up/down clamp
+	rotation_degrees.y -= inputs.controllerLook.x * delta
+	camera.playerRot -= inputs.mouseDelta.y * delta # eyes up/down
+	camera.playerRot -= inputs.controllerLook.y * delta
+	camera.playerRot = clamp(camera.playerRot, minLookAngle, maxLookAngle) # up/down clamp
 	
 	reset_input_dict() # reset input flags
 
@@ -159,10 +169,3 @@ func reset_input_dict():
 	inputs.movement = Vector2()
 	inputs.mouseDelta = Vector2()
 	inputs.jump = false
-
-
-func parse_external_input(extInputs, extStates):
-	if (useExternalInput):
-		inputs.movement = extInputs.movementVector
-		inputs.mouseDelta = extInputs.lookVector
-		inputs.jump = extStates.jump

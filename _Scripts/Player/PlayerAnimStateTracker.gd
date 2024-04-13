@@ -12,12 +12,11 @@ var alreadyMoving = false
 var onFloor = false
 var tick = 0
 @export var stepDistance = 3
-@export var footstep: AudioStreamPlayer3D
+@export var footstep: PackedScene
 
 # signals
 signal stopped
 signal stepped
-signal first_step
 signal landed
 signal jumped
 signal moving
@@ -55,20 +54,18 @@ func _physics_process(_delta):
 		#print("Stepped! ", tick)
 		emit_signal("stepped")
 		if footstep:
-			var stepSound = footstep.instance()
+			var stepSound = footstep.instantiate()
 			stepSound.transform.origin = player.global_transform.origin
-			stepSound.baseHiPass = 2000
 			get_tree().get_root().add_child(stepSound)
 	
 	if abs(player.velocity.x) > 0.1 || abs(player.velocity.y) > 0.1 || abs(player.velocity.z) > 0.1:
 		#print("Moving ", tick)
 		if !alreadyMoving and player.is_on_floor():
-			emit_signal("first_step")
+			emit_signal("stepped")
 			alreadyMoving = true
 			if footstep:
-				var stepSound = footstep.instance()
+				var stepSound = footstep.instantiate()
 				stepSound.transform.origin = player.global_transform.origin
-				stepSound.baseHiPass = 2000
 				get_tree().get_root().add_child(stepSound)
 		emit_signal("moving")
 	else:
