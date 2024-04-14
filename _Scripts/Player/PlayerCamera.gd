@@ -46,14 +46,14 @@ var motions = {
 		"rotZ": 0.0,
 	},
 	"strideLeft": {
-		"view": Vector3(0, -0.2, 0),
+		"view": Vector3(0, -0.1, 0),
 		"rotX": 0.0,
-		"rotZ": 0.015,
+		"rotZ": 0.01,
 	},
 	"strideRight": {
-		"view": Vector3(0, -0.2, 0),
+		"view": Vector3(0, -0.1, 0),
 		"rotX": 0.0,
-		"rotZ": -0.015,
+		"rotZ": -0.01,
 	},
 	"jump": {
 		"view": Vector3.ZERO,
@@ -61,7 +61,7 @@ var motions = {
 		"rotZ": 0.0,
 	},
 	"land": {
-		"view": Vector3(0, -0.2, 0),
+		"view": Vector3(0, -0.5, 0),
 		"rotX": 0.0,
 		"rotZ": 0.0,
 	},

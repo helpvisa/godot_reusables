@@ -166,7 +166,7 @@ func internal_input(delta):
 	
 	# toggles
 	if Input.is_action_just_pressed("run_toggle"):
-		inputs.toggleRun = !inputs.run
+		inputs.toggleRun = true
 	
 	# set mouse delta for mouselook
 	inputs.mouseDelta = internalMouseDelta * lookSensitivity * delta

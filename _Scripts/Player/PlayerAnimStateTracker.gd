@@ -12,8 +12,8 @@ var alreadyMoving = false
 var onFloor = false
 var tick = 0
 @export var stepDistance = 1
-@export var footsteps: Array[PackedScene]
-@export var landing: PackedScene
+@export var footsteps: Array[AudioStreamOggVorbis]
+@export var landing: AudioStreamOggVorbis
 
 # signals
 signal stopped
@@ -21,10 +21,6 @@ signal stepped
 signal landed
 signal jumped
 signal moving
-
-
-func _ready():
-	pass
 
 
 func _physics_process(_delta):
@@ -37,9 +33,12 @@ func _physics_process(_delta):
 		if !onFloor:
 			emit_signal("landed", player.lastTickVelocity)
 			if landing:
-				var landSound = landing.instantiate()
-				landSound.transform.origin = player.global_transform.origin
-				add_child(landSound)
+				var audioNode = AudioStreamPlayer3D.new()
+				audioNode.stream = landing
+				audioNode.autoplay = true
+				audioNode.volume_db = -35 + abs(player.lastTickVelocity.y) * 3
+				add_child(audioNode)
+				audioNode.global_position = player.global_position - Vector3(0, 1, 0)
 			onFloor = true
 		
 		distanceOnFoot += distanceThisTick # distance travelled while on the ground
@@ -60,9 +59,13 @@ func _physics_process(_delta):
 		emit_signal("stepped")
 		if footsteps.size() > 0:
 			var idx = randi_range(0, footsteps.size()-1)
-			var stepSound = footsteps[idx].instantiate()
-			stepSound.transform.origin = player.global_transform.origin
-			add_child(stepSound)
+			var stepSound = footsteps[idx]
+			var audioNode = AudioStreamPlayer3D.new()
+			audioNode.stream = stepSound
+			audioNode.autoplay = true
+			audioNode.volume_db = -30 + Vector2(player.velocity.x, player.velocity.z).length_squared()
+			get_parent().add_child(audioNode)
+			audioNode.global_position = player.global_position - Vector3(0, 1, 0)
 	
 	if abs(player.velocity.x) > 0.1 || abs(player.velocity.y) > 0.1 || abs(player.velocity.z) > 0.1:
 		#print("Moving ", tick)
@@ -71,9 +74,13 @@ func _physics_process(_delta):
 			alreadyMoving = true
 			if footsteps.size() > 0:
 				var idx = randi_range(0, footsteps.size()-1)
-				var stepSound = footsteps[idx].instantiate()
-				stepSound.transform.origin = player.global_transform.origin
-				add_child(stepSound)
+				var stepSound = footsteps[idx]
+				var audioNode = AudioStreamPlayer3D.new()
+				audioNode.stream = stepSound
+				audioNode.autoplay = true
+				audioNode.volume_db = -30 + Vector2(player.velocity.x, player.velocity.z).length_squared()
+				get_parent().add_child(audioNode)
+				audioNode.global_position = player.global_position - Vector3(0, 1, 0)
 		emit_signal("moving")
 	else:
 		stepTrigger = 0
