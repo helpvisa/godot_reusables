@@ -11,8 +11,9 @@ var stepTrigger = 0 # variable that triggers step
 var alreadyMoving = false
 var onFloor = false
 var tick = 0
-@export var stepDistance = 3
-@export var footstep: PackedScene
+@export var stepDistance = 1
+@export var footsteps: Array[PackedScene]
+@export var landing: PackedScene
 
 # signals
 signal stopped
@@ -34,14 +35,18 @@ func _physics_process(_delta):
 	
 	if player.is_on_floor():
 		if !onFloor:
-			#print("Landed!")
 			emit_signal("landed", player.lastTickVelocity)
+			if landing:
+				var landSound = landing.instantiate()
+				landSound.transform.origin = player.global_transform.origin
+				add_child(landSound)
 			onFloor = true
 		
 		distanceOnFoot += distanceThisTick # distance travelled while on the ground
 		stepTrigger += distanceThisTick # and add this to the step trigger var too
 	else:
 		onFloor = false
+		stepTrigger = 0
 	
 	# display values in console
 	#if (tick % 5 == 0):
@@ -53,20 +58,22 @@ func _physics_process(_delta):
 		stepTrigger = 0
 		#print("Stepped! ", tick)
 		emit_signal("stepped")
-		if footstep:
-			var stepSound = footstep.instantiate()
+		if footsteps.size() > 0:
+			var idx = randi_range(0, footsteps.size()-1)
+			var stepSound = footsteps[idx].instantiate()
 			stepSound.transform.origin = player.global_transform.origin
-			get_tree().get_root().add_child(stepSound)
+			add_child(stepSound)
 	
 	if abs(player.velocity.x) > 0.1 || abs(player.velocity.y) > 0.1 || abs(player.velocity.z) > 0.1:
 		#print("Moving ", tick)
 		if !alreadyMoving and player.is_on_floor():
 			emit_signal("stepped")
 			alreadyMoving = true
-			if footstep:
-				var stepSound = footstep.instantiate()
+			if footsteps.size() > 0:
+				var idx = randi_range(0, footsteps.size()-1)
+				var stepSound = footsteps[idx].instantiate()
 				stepSound.transform.origin = player.global_transform.origin
-				get_tree().get_root().add_child(stepSound)
+				add_child(stepSound)
 		emit_signal("moving")
 	else:
 		stepTrigger = 0
